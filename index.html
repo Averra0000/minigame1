@@ -1,155 +1,190 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2575.7">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px 'Songti SC'; -webkit-text-stroke: #000000}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px 'Songti SC'; -webkit-text-stroke: #000000; min-height: 17.0px}
-    span.s1 {font-kerning: none}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Aim Challenge</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #1a1a1a; 
+            color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { display: block; }
+        
+        /* Progress Bars UI */
+        .ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none; /* Let clicks pass through */
+        }
+        .bar-wrapper { background: rgba(0,0,0,0.5); padding: 5px; border-radius: 8px; }
+        .label { font-size: 14px; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .progress-bg { background: #333; height: 12px; border-radius: 6px; overflow: hidden; }
+        #bar1-fill { width: 0%; height: 100%; background: #2ecc71; transition: width 0.1s; }
+        #bar2-fill { width: 0%; height: 100%; background: #e74c3c; transition: width 0.1s; }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-<p class="p1"><span class="s1">&lt;!DOCTYPE html&gt;</span></p>
-<p class="p1"><span class="s1">&lt;html lang="zh"&gt;</span></p>
-<p class="p1"><span class="s1">&lt;head&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta charset="UTF-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;title&gt;水柱瞄准挑战赛&lt;/title&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;style&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>body { display: flex; flex-direction: column; align-items: center; background: #222; color: white; font-family: sans-serif; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>canvas { border: 4px solid #444; background: #333; cursor: crosshair; margin-top: 20px; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.stats { display: flex; gap: 20px; margin-top: 10px; width: 600px; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.bar-container { flex: 1; height: 30px; background: #555; border-radius: 15px; overflow: hidden; position: relative; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#bar1 { height: 100%; background: #4CAF50; width: 0%; transition: width 0.1s; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#bar2 { height: 100%; background: #F44336; width: 0%; transition: width 0.1s; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.label { position: absolute; width: 100%; text-align: center; line-height: 30px; font-weight: bold; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.controls { margin-top: 15px; color: #aaa; font-size: 0.9em; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/head&gt;</span></p>
-<p class="p1"><span class="s1">&lt;body&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;h2&gt;💧 水柱控制练习&lt;/h2&gt;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="stats"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="bar-container"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div id="bar1"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="label"&gt;目标进度 (Bar 1)&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="bar-container"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div id="bar2"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="label"&gt;失误惩罚 (Bar 2)&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;canvas id="gameCanvas" width="600" height="400"&gt;&lt;/canvas&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="controls"&gt;使用键盘 &lt;b&gt;↑ ↓ ← →&lt;/b&gt; 控制水柱方向，使其落在绿色区域！&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1">&lt;script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const canvas = document.getElementById('gameCanvas');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const ctx = canvas.getContext('2d');</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// 游戏状态</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let bar1 = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let bar2 = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const maxVal = 100;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let gameOver = false;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// 水柱位置（落点）</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let waterX = canvas.width / 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let waterY = canvas.height / 2;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// 随机漂移速度</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let driftX = 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let driftY = 2;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// 目标区域配置</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const targetArea = { x: 350, y: 100, w: 150, h: 200 };</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// 按键监听</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const keys = {};</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>window.addEventListener('keydown', e =&gt; keys[e.key] = true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>window.addEventListener('keyup', e =&gt; keys[e.key] = false);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>function update() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (gameOver) return;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 1. 处理随机漂移（模拟水柱不稳）</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>driftX += (Math.random() - 0.5) * 0.5;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>driftY += (Math.random() - 0.5) * 0.5;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>waterX += driftX;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>waterY += driftY;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 2. 处理玩家控制</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const speed = 4;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (keys['ArrowUp']) waterY -= speed;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (keys['ArrowDown']) waterY += speed;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (keys['ArrowLeft']) waterX -= speed;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (keys['ArrowRight']) waterX += speed;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 3. 边界检测</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>waterX = Math.max(0, Math.min(canvas.width, waterX));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>waterY = Math.max(0, Math.min(canvas.height, waterY));</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 4. 判断落点并增加 Bar</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const inTarget = waterX &gt; targetArea.x &amp;&amp; waterX &lt; targetArea.x + targetArea.w &amp;&amp;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                         </span>waterY &gt; targetArea.y &amp;&amp; waterY &lt; targetArea.y + targetArea.h;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (inTarget) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>bar1 += 0.2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>} else {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>bar2 += 0.15;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 5. 更新 UI</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.getElementById('bar1').style.width = bar1 + '%';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.getElementById('bar2').style.width = bar2 + '%';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 6. 胜负判定</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (bar1 &gt;= maxVal) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gameOver = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>alert("🎉 恭喜！你成功填满了目标区域！");</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>location.reload();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>} else if (bar2 &gt;= maxVal) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gameOver = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>alert("❌ 失败！水洒得到处都是...");</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>location.reload();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>function draw() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.clearRect(0, 0, canvas.width, canvas.height);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 画背景区域</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillStyle = '#444'; // 非指定区域</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(0, 0, canvas.width, canvas.height);</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillStyle = '#2e4d2e'; // 指定区域</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(targetArea.x, targetArea.y, targetArea.w, targetArea.h);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.strokeStyle = '#4CAF50';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.strokeRect(targetArea.x, targetArea.y, targetArea.w, targetArea.h);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// 画水柱落点 (阴影)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.shadowBlur = 15;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.shadowColor = '#00dcff';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillStyle = '#00dcff';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.beginPath();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.arc(waterX, waterY, 15, 0, Math.PI * 2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fill();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.shadowBlur = 0;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>requestAnimationFrame(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>update();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>draw();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>draw();</span></p>
-<p class="p1"><span class="s1">&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/body&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/html&gt;</span></p>
+
+    <div class="ui-container">
+        <div class="bar-wrapper">
+            <div class="label"><span>SUCCESS (BAR 1)</span><span id="p1">0%</span></div>
+            <div class="progress-bg"><div id="bar1-fill"></div></div>
+        </div>
+        <div class="bar-wrapper">
+            <div class="label"><span>FAILURE (BAR 2)</span><span id="p2">0%</span></div>
+            <div class="progress-bg"><div id="bar2-fill"></div></div>
+        </div>
+    </div>
+
+    <div class="instructions">Use MOUSE or ARROW KEYS to control the water landing point.</div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Game Config
+    let bar1 = 0;
+    let bar2 = 0;
+    const bar1Rate = 10; // 10% per second
+    const bar2Rate = 30; // 30% per second
+    let lastTime = 0;
+    let isGameOver = false;
+
+    // Water Position & Physics
+    let waterPos = { x: window.innerWidth/2, y: window.innerHeight/2 };
+    let drift = { x: 0, y: 0 };
+    const keys = {};
+
+    // Target Zone (Center)
+    const targetSize = { w: 200, h: 200 };
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Input Listeners
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+    window.addEventListener('mousemove', e => {
+        // Influence water position with mouse (gentle pull)
+        waterPos.x += (e.clientX - waterPos.x) * 0.1;
+        waterPos.y += (e.clientY - waterPos.y) * 0.1;
+    });
+
+    function update(timestamp) {
+        if (isGameOver) return;
+        
+        const dt = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+        if (!dt) { requestAnimationFrame(update); return; }
+
+        // 1. Random Drift (The "Water" feel)
+        drift.x += (Math.random() - 0.5) * 2;
+        drift.y += (Math.random() - 0.5) * 2;
+        waterPos.x += drift.x;
+        waterPos.y += drift.y;
+        drift.x *= 0.95; // Friction
+        drift.y *= 0.95;
+
+        // 2. Keyboard Control
+        const speed = 300 * dt;
+        if (keys['ArrowUp'] || keys['w']) waterPos.y -= speed;
+        if (keys['ArrowDown'] || keys['s']) waterPos.y += speed;
+        if (keys['ArrowLeft'] || keys['a']) waterPos.x -= speed;
+        if (keys['ArrowRight'] || keys['d']) waterPos.x += speed;
+
+        // 3. Keep in screen
+        waterPos.x = Math.max(0, Math.min(canvas.width, waterPos.x));
+        waterPos.y = Math.max(0, Math.min(canvas.height, waterPos.y));
+
+        // 4. Scoring Logic
+        const targetX = (canvas.width - targetSize.w) / 2;
+        const targetY = (canvas.height - targetSize.h) / 2;
+        
+        const inTarget = waterPos.x > targetX && waterPos.x < targetX + targetSize.w &&
+                         waterPos.y > targetY && waterPos.y < targetY + targetSize.h;
+
+        if (inTarget) {
+            bar1 += bar1Rate * dt;
+        } else {
+            bar2 += bar2Rate * dt;
+        }
+
+        // Update UI
+        document.getElementById('bar1-fill').style.width = Math.min(bar1, 100) + '%';
+        document.getElementById('bar2-fill').style.width = Math.min(bar2, 100) + '%';
+        document.getElementById('p1').innerText = Math.floor(bar1) + '%';
+        document.getElementById('p2').innerText = Math.floor(bar2) + '%';
+
+        // 5. Win/Loss Check
+        if (bar1 >= 100) {
+            isGameOver = true;
+            alert("YOU WIN! Perfect Aim.");
+            location.reload();
+        } else if (bar2 >= 100) {
+            isGameOver = true;
+            alert("GAME OVER! You missed too much.");
+            location.reload();
+        }
+
+        draw();
+        requestAnimationFrame(update);
+    }
+
+    function draw() {
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const targetX = (canvas.width - targetSize.w) / 2;
+        const targetY = (canvas.height - targetSize.h) / 2;
+
+        // Draw Target Zone
+        ctx.strokeStyle = '#2ecc71';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(targetX, targetY, targetSize.w, targetSize.h);
+        ctx.fillStyle = 'rgba(46, 204, 113, 0.1)';
+        ctx.fillRect(targetX, targetY, targetSize.w, targetSize.h);
+
+        // Draw Water Drop (The Aim Point)
+        ctx.beginPath();
+        const gradient = ctx.createRadialGradient(waterPos.x, waterPos.y, 0, waterPos.x, waterPos.y, 20);
+        gradient.addColorStop(0, '#00d4ff');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.arc(waterPos.x, waterPos.y, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw "Splatter" effect
+        ctx.fillStyle = '#00d4ff';
+        ctx.beginPath();
+        ctx.arc(waterPos.x, waterPos.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    requestAnimationFrame(update);
+</script>
 </body>
 </html>
