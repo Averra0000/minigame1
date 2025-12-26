@@ -1,190 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Water Aim Challenge</title>
+    <title>Aim Game - Toilet Edition</title>
     <style>
         body { 
-            margin: 0; 
-            overflow: hidden; 
-            background: #1a1a1a; 
-            color: white; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; overflow: hidden; background: #000; color: white; font-family: sans-serif; 
+            /* 背景图设置 */
+            background-image: url('bg.jpg'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
         canvas { display: block; }
-        
-        /* Progress Bars UI */
-        .ui-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 250px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none; /* Let clicks pass through */
+        .ui { position: absolute; top: 20px; left: 20px; width: 280px; pointer-events: none; }
+        .bar-container { 
+            background: rgba(0, 0, 0, 0.7); padding: 12px; border-radius: 8px; margin-bottom: 12px; 
+            border: 1px solid rgba(0, 212, 255, 0.3); backdrop-filter: blur(5px);
         }
-        .bar-wrapper { background: rgba(0,0,0,0.5); padding: 5px; border-radius: 8px; }
-        .label { font-size: 14px; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
-        .progress-bg { background: #333; height: 12px; border-radius: 6px; overflow: hidden; }
-        #bar1-fill { width: 0%; height: 100%; background: #2ecc71; transition: width 0.1s; }
-        #bar2-fill { width: 0%; height: 100%; background: #e74c3c; transition: width 0.1s; }
-        
-        .instructions {
-            position: absolute;
-            bottom: 20px;
-            width: 100%;
-            text-align: center;
-            color: #888;
-            font-size: 14px;
-        }
+        .label { font-size: 13px; margin-bottom: 6px; display: flex; justify-content: space-between; font-weight: bold; }
+        .progress { background: #1a1a1a; height: 14px; border-radius: 7px; overflow: hidden; border: 1px solid #333; }
+        #pee-fill { height: 100%; background: #00d4ff; width: 0%; transition: width 0.1s; box-shadow: 0 0 15px #00d4ff; }
+        #floor-fill { height: 100%; background: #005a7a; width: 0%; transition: width 0.1s; }
     </style>
 </head>
 <body>
 
-    <div class="ui-container">
-        <div class="bar-wrapper">
-            <div class="label"><span>SUCCESS (BAR 1)</span><span id="p1">0%</span></div>
-            <div class="progress-bg"><div id="bar1-fill"></div></div>
+    <div class="ui">
+        <div class="bar-container">
+            <div class="label">PEE BAR (TARGET) <span id="p1">0%</span></div>
+            <div class="progress"><div id="pee-fill"></div></div>
         </div>
-        <div class="bar-wrapper">
-            <div class="label"><span>FAILURE (BAR 2)</span><span id="p2">0%</span></div>
-            <div class="progress-bg"><div id="bar2-fill"></div></div>
+        <div class="bar-container">
+            <div class="label">FLOOR BAR (FAIL) <span id="p2">0%</span></div>
+            <div class="progress"><div id="floor-fill"></div></div>
         </div>
     </div>
-
-    <div class="instructions">Use MOUSE or ARROW KEYS to control the water landing point.</div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    
-    // Game Config
-    let bar1 = 0;
-    let bar2 = 0;
-    const bar1Rate = 10; // 10% per second
-    const bar2Rate = 30; // 30% per second
-    let lastTime = 0;
-    let isGameOver = false;
 
-    // Water Position & Physics
-    let waterPos = { x: window.innerWidth/2, y: window.innerHeight/2 };
+    // --- 【对齐配置：根据你的图片进行了预设】 ---
+    const TARGET_ZONE = {
+        w: 130,       // 马桶中心区域宽度
+        h: 130,       // 马桶中心区域高度
+        offsetX: 0,   // 左右偏移
+        offsetY: -80  // 负数代表向上移动，对准背景图里的马桶
+    };
+
+    let bar1 = 0, bar2 = 0;
+    let isGameOver = false;
+    
+    let waterPos = { x: 0, y: 0 };
     let drift = { x: 0, y: 0 };
     const keys = {};
+    let particles = [];
 
-    // Target Zone (Center)
-    const targetSize = { w: 200, h: 200 };
+    // 音效
+    const winSound = new Audio('win.mp3');
+    const failSound = new Audio('fail.mp3');
 
-    function resize() {
+    class Drip {
+        constructor() {
+            this.progress = 0;
+            this.speed = 0.05 + Math.random() * 0.02;
+            this.startX = canvas.width / 2;
+            this.startY = canvas.height + 20;
+            this.tx = waterPos.x + (Math.random()-0.5) * 15;
+            this.ty = waterPos.y + (Math.random()-0.5) * 15;
+        }
+        update() {
+            this.progress += this.speed;
+            this.currX = this.startX + (this.tx - this.startX) * this.progress;
+            this.currY = this.startY + (this.ty - this.startY) * this.progress - Math.sin(this.progress * Math.PI) * 120;
+        }
+        draw() {
+            let size = 1 + (1 - this.progress) * 10;
+            ctx.fillStyle = `rgba(0, 212, 255, ${1 - this.progress})`;
+            ctx.beginPath(); ctx.arc(this.currX, this.currY, size, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    function init() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        waterPos.x = (canvas.width / 2) + TARGET_ZONE.offsetX;
+        waterPos.y = (canvas.height / 2) + TARGET_ZONE.offsetY;
     }
-    window.addEventListener('resize', resize);
-    resize();
+    window.addEventListener('resize', init);
+    init();
 
-    // Input Listeners
-    window.addEventListener('keydown', e => keys[e.key] = true);
-    window.addEventListener('keyup', e => keys[e.key] = false);
-    window.addEventListener('mousemove', e => {
-        // Influence water position with mouse (gentle pull)
-        waterPos.x += (e.clientX - waterPos.x) * 0.1;
-        waterPos.y += (e.clientY - waterPos.y) * 0.1;
-    });
+    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-    function update(timestamp) {
+    function loop() {
         if (isGameOver) return;
-        
-        const dt = (timestamp - lastTime) / 1000;
-        lastTime = timestamp;
-        if (!dt) { requestAnimationFrame(update); return; }
 
-        // 1. Random Drift (The "Water" feel)
-        drift.x += (Math.random() - 0.5) * 2;
-        drift.y += (Math.random() - 0.5) * 2;
+        drift.x += (Math.random() - 0.5) * 1.5;
+        drift.y += (Math.random() - 0.5) * 1.5;
         waterPos.x += drift.x;
         waterPos.y += drift.y;
-        drift.x *= 0.95; // Friction
-        drift.y *= 0.95;
+        drift.x *= 0.96; drift.y *= 0.96;
 
-        // 2. Keyboard Control
-        const speed = 300 * dt;
-        if (keys['ArrowUp'] || keys['w']) waterPos.y -= speed;
-        if (keys['ArrowDown'] || keys['s']) waterPos.y += speed;
-        if (keys['ArrowLeft'] || keys['a']) waterPos.x -= speed;
-        if (keys['ArrowRight'] || keys['d']) waterPos.x += speed;
+        const moveSpeed = 7;
+        if (keys['w'] || keys['arrowup'])    waterPos.y -= moveSpeed;
+        if (keys['s'] || keys['arrowdown'])  waterPos.y += moveSpeed;
+        if (keys['a'] || keys['arrowleft'])  waterPos.x -= moveSpeed;
+        if (keys['d'] || keys['arrowright']) waterPos.x += moveSpeed;
 
-        // 3. Keep in screen
-        waterPos.x = Math.max(0, Math.min(canvas.width, waterPos.x));
-        waterPos.y = Math.max(0, Math.min(canvas.height, waterPos.y));
+        for(let i=0; i<3; i++) particles.push(new Drip());
 
-        // 4. Scoring Logic
-        const targetX = (canvas.width - targetSize.w) / 2;
-        const targetY = (canvas.height - targetSize.h) / 2;
+        const tx = (canvas.width / 2) - (TARGET_ZONE.w / 2) + TARGET_ZONE.offsetX;
+        const ty = (canvas.height / 2) - (TARGET_ZONE.h / 2) + TARGET_ZONE.offsetY;
+        const inTarget = waterPos.x > tx && waterPos.x < tx + TARGET_ZONE.w &&
+                         waterPos.y > ty && waterPos.y < ty + TARGET_ZONE.h;
         
-        const inTarget = waterPos.x > targetX && waterPos.x < targetX + targetSize.w &&
-                         waterPos.y > targetY && waterPos.y < targetY + targetSize.h;
+        if (inTarget) bar1 += 0.2; else bar2 += 0.6;
 
-        if (inTarget) {
-            bar1 += bar1Rate * dt;
-        } else {
-            bar2 += bar2Rate * dt;
-        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Update UI
-        document.getElementById('bar1-fill').style.width = Math.min(bar1, 100) + '%';
-        document.getElementById('bar2-fill').style.width = Math.min(bar2, 100) + '%';
+        // 目标辅助线（可选，对齐后可以把 alpha 设为 0）
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.strokeRect(tx, ty, TARGET_ZONE.w, TARGET_ZONE.h);
+
+        particles.forEach((p, i) => {
+            p.update(); p.draw();
+            if (p.progress >= 1) particles.splice(i, 1);
+        });
+
+        document.getElementById('pee-fill').style.width = Math.min(bar1, 100) + '%';
+        document.getElementById('floor-fill').style.width = Math.min(bar2, 100) + '%';
         document.getElementById('p1').innerText = Math.floor(bar1) + '%';
         document.getElementById('p2').innerText = Math.floor(bar2) + '%';
 
-        // 5. Win/Loss Check
-        if (bar1 >= 100) {
-            isGameOver = true;
-            alert("YOU WIN! Perfect Aim.");
-            location.reload();
-        } else if (bar2 >= 100) {
-            isGameOver = true;
-            alert("GAME OVER! You missed too much.");
-            location.reload();
-        }
+        if (bar1 >= 100) { winSound.play(); alert("SUCCESS!"); location.reload(); isGameOver = true; }
+        if (bar2 >= 100) { failSound.play(); alert("FAILED!"); location.reload(); isGameOver = true; }
 
-        draw();
-        requestAnimationFrame(update);
+        requestAnimationFrame(loop);
     }
-
-    function draw() {
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const targetX = (canvas.width - targetSize.w) / 2;
-        const targetY = (canvas.height - targetSize.h) / 2;
-
-        // Draw Target Zone
-        ctx.strokeStyle = '#2ecc71';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(targetX, targetY, targetSize.w, targetSize.h);
-        ctx.fillStyle = 'rgba(46, 204, 113, 0.1)';
-        ctx.fillRect(targetX, targetY, targetSize.w, targetSize.h);
-
-        // Draw Water Drop (The Aim Point)
-        ctx.beginPath();
-        const gradient = ctx.createRadialGradient(waterPos.x, waterPos.y, 0, waterPos.x, waterPos.y, 20);
-        gradient.addColorStop(0, '#00d4ff');
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.arc(waterPos.x, waterPos.y, 20, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Draw "Splatter" effect
-        ctx.fillStyle = '#00d4ff';
-        ctx.beginPath();
-        ctx.arc(waterPos.x, waterPos.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    requestAnimationFrame(update);
+    requestAnimationFrame(loop);
 </script>
 </body>
 </html>
