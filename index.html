@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Aim Game - Challenge Edition</title>
+    <title>Aim Game - Classic Smooth Edition</title>
     <style>
         body { 
-            margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', sans-serif; 
             background-image: url('bg.jpg'); background-size: cover; background-position: center;
         }
         canvas { display: block; }
@@ -19,18 +19,18 @@
         #pee-fill { height: 100%; background: #00d4ff; width: 0%; transition: width 0.1s; box-shadow: 0 0 15px #00d4ff; }
         #floor-fill { height: 100%; background: #005a7a; width: 0%; transition: width 0.1s; }
         
-        /* 底部提示 UI */
+        /* 底部半透明提示 */
         #hint { 
             position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
-            color: rgba(255, 255, 255, 0.6); font-size: 18px; font-weight: 300;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); letter-spacing: 2px;
-            pointer-events: none; transition: opacity 0.5s;
+            color: rgba(255, 255, 255, 0.5); font-size: 16px; font-weight: 300;
+            text-shadow: 0px 4px 8px rgba(0, 0, 0, 0.9); letter-spacing: 3px;
+            pointer-events: none; transition: opacity 0.8s;
         }
     </style>
 </head>
 <body>
 
-    <div id="hint">PRESS WASD TO START</div>
+    <div id="hint">PRESS ANY KEY TO START</div>
 
     <div class="ui">
         <div class="bar-container">
@@ -58,9 +58,8 @@
     let waterPos = { x: 0, y: 0 };
     let velocity = { x: 0, y: 0 }; 
     const accel = 0.8;             
-    const friction = 0.88; // 恢复第一版那种略带阻力的丝滑感
+    const friction = 0.88; // 第一版黄金参数
     
-    let drift = { x: 0, y: 0 }; 
     const keys = {};
     let particles = [];
 
@@ -101,7 +100,7 @@
     window.onkeydown = e => {
         const k = e.key.toLowerCase();
         keys[k] = true;
-        if (!gameStarted && ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) {
+        if (!gameStarted) {
             gameStarted = true;
             document.getElementById('hint').style.opacity = '0';
         }
@@ -112,33 +111,22 @@
         if (isGameOver) return;
 
         if (gameStarted) {
-            // 1. 【核心机制】游离力：水柱会自动向外漂
-            const centerX = (canvas.width / 2) + TZ.ox;
-            const centerY = (canvas.height / 2) + TZ.oy;
-            
-            // 计算当前点到中心的距离
-            let dx = waterPos.x - centerX;
-            let dy = waterPos.y - centerY;
-            
-            // 施加一个向外的推力，离中心越近推力越小，越远推力越大
-            velocity.x += dx * 0.005; 
-            velocity.y += dy * 0.005;
+            // 1. 随机移动逻辑：通过不断累积小的随机冲力来产生滑行的不确定性
+            // 这种方式比直接改位置更丝滑，也更有挑战
+            velocity.x += (Math.random() - 0.5) * 1.6;
+            velocity.y += (Math.random() - 0.5) * 1.6;
 
-            // 2. 随机抖动 (复刻第一版风格)
-            velocity.x += (Math.random() - 0.5) * 1.5;
-            velocity.y += (Math.random() - 0.5) * 1.5;
-
-            // 3. 操控输入
+            // 2. 玩家操控
             if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
             if (keys['s'] || keys['arrowdown'])  velocity.y += accel;
             if (keys['a'] || keys['arrowleft'])  velocity.x -= accel;
             if (keys['d'] || keys['arrowright']) velocity.x += accel;
 
-            // 4. 物理衰减
+            // 3. 应用第一版阻尼
             velocity.x *= friction;
             velocity.y *= friction;
 
-            // 5. 更新位置
+            // 4. 更新坐标
             waterPos.x += velocity.x;
             waterPos.y += velocity.y;
         }
@@ -154,11 +142,11 @@
             if (p.progress >= 1) particles.splice(i, 1);
         });
 
-        // 接触点发光
+        // 绘制高亮接触点
         ctx.save();
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 25;
         ctx.shadowColor = "#00d4ff";
-        ctx.fillStyle = "rgba(0, 212, 255, 0.9)";
+        ctx.fillStyle = "rgba(0, 212, 255, 0.95)";
         ctx.beginPath();
         ctx.arc(waterPos.x, waterPos.y, 11, 0, Math.PI * 2);
         ctx.fill();
@@ -170,7 +158,7 @@
             const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w &&
                              waterPos.y > ty && waterPos.y < ty + TZ.h;
             
-            if (inTarget) bar1 += 0.25; else bar2 += 0.5;
+            if (inTarget) bar1 += 0.28; else bar2 += 0.45;
 
             document.getElementById('pee-fill').style.width = Math.min(bar1, 100) + '%';
             document.getElementById('floor-fill').style.width = Math.min(bar2, 100) + '%';
@@ -179,11 +167,11 @@
 
             if (bar1 >= 100) { 
                 winSound.play().catch(()=>{}); 
-                alert("CLEAN SHOT! SUCCESS!"); location.reload(); isGameOver = true; 
+                alert("MISSION ACCOMPLISHED!"); location.reload(); isGameOver = true; 
             }
             if (bar2 >= 100) { 
                 failSound.play().catch(()=>{}); 
-                alert("MESSY! FAILED!"); location.reload(); isGameOver = true; 
+                alert("GAME OVER - YOU MISSED!"); location.reload(); isGameOver = true; 
             }
         }
 
