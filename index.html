@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Aim Game - Smooth Edition</title>
+    <title>Aim Game - Pro Edition</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background: #000; color: white; font-family: sans-serif; 
@@ -18,9 +18,16 @@
         .progress { background: #1a1a1a; height: 14px; border-radius: 7px; overflow: hidden; border: 1px solid #333; }
         #pee-fill { height: 100%; background: #00d4ff; width: 0%; transition: width 0.1s; box-shadow: 0 0 15px #00d4ff; }
         #floor-fill { height: 100%; background: #005a7a; width: 0%; transition: width 0.1s; }
+        #hint { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.6); padding: 20px; border-radius: 10px; border: 1px solid gold;
+            text-align: center; pointer-events: none;
+        }
     </style>
 </head>
 <body>
+
+    <div id="hint">按下 WASD 键开始</div>
 
     <div class="ui">
         <div class="bar-container">
@@ -39,22 +46,21 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // 应用你找到的精准数值
     const TZ = { w: 150, h: 150, ox: 110, oy: -65 };
 
     let bar1 = 0, bar2 = 0;
     let isGameOver = false;
+    let gameStarted = false; // 启动开关
     
     let waterPos = { x: 0, y: 0 };
     let velocity = { x: 0, y: 0 }; 
-    const accel = 0.6;             // 更加精细的加速度
-    const friction = 0.92;          // 稍微增加一点惯性，手感更丝滑
+    const accel = 0.7;             
+    const friction = 0.90;          
     
     let drift = { x: 0, y: 0 }; 
     const keys = {};
     let particles = [];
 
-    // 预加载音效（防止报错）
     const winSound = new Audio('win.mp3');
     const failSound = new Audio('fail.mp3');
 
@@ -91,32 +97,52 @@
     window.addEventListener('resize', init);
     init();
 
-    window.onkeydown = e => keys[e.key.toLowerCase()] = true;
+    window.onkeydown = e => {
+        const k = e.key.toLowerCase();
+        keys[k] = true;
+        // 第一次按下方向键时，隐藏提示并启动游戏
+        if (!gameStarted && ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) {
+            gameStarted = true;
+            document.getElementById('hint').style.display = 'none';
+        }
+    };
     window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
     function loop() {
         if (isGameOver) return;
 
-        // 1. 物理：随机漂移 (缓和的波动)
-        drift.x += (Math.random() - 0.5) * 0.8;
-        drift.y += (Math.random() - 0.5) * 0.8;
-        velocity.x += drift.x * 0.05;
-        velocity.y += drift.y * 0.05;
-        drift.x *= 0.9; drift.y *= 0.9;
+        if (gameStarted) {
+            // 1. 物理：动态难度随机漂移
+            // 随着 bar1 增加，漂移强度从 1.0 增加到 1.8
+            const difficultyScale = 1.0 + (bar1 / 100) * 0.8;
+            
+            drift.x += (Math.random() - 0.5) * 1.5 * difficultyScale;
+            drift.y += (Math.random() - 0.5) * 1.5 * difficultyScale;
+            
+            // 模拟“突发水压”：极小概率出现较大的偏移
+            if(Math.random() < 0.02) {
+                velocity.x += (Math.random() - 0.5) * 15;
+                velocity.y += (Math.random() - 0.5) * 15;
+            }
 
-        // 2. 控制：平滑加速
-        if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
-        if (keys['s'] || keys['arrowdown'])  velocity.y += accel;
-        if (keys['a'] || keys['arrowleft'])  velocity.x -= accel;
-        if (keys['d'] || keys['arrowright']) velocity.x += accel;
+            velocity.x += drift.x * 0.08;
+            velocity.y += drift.y * 0.08;
+            drift.x *= 0.85; drift.y *= 0.85;
 
-        // 3. 应用摩擦力
-        velocity.x *= friction;
-        velocity.y *= friction;
+            // 2. 控制
+            if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
+            if (keys['s'] || keys['arrowdown'])  velocity.y += accel;
+            if (keys['a'] || keys['arrowleft'])  velocity.x -= accel;
+            if (keys['d'] || keys['arrowright']) velocity.x += accel;
 
-        // 4. 更新位置
-        waterPos.x += velocity.x;
-        waterPos.y += velocity.y;
+            // 3. 应用摩擦力
+            velocity.x *= friction;
+            velocity.y *= friction;
+
+            // 4. 更新位置
+            waterPos.x += velocity.x;
+            waterPos.y += velocity.y;
+        }
 
         // 5. 渲染
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -126,13 +152,12 @@
             for(let i=0; i<3; i++) particles.push(new Drip());
         }
 
-        // 绘制粒子
         particles.forEach((p, i) => {
             p.update(); p.draw();
             if (p.progress >= 1) particles.splice(i, 1);
         });
 
-        // 绘制高亮落点 (改回简单发光模式，更稳健)
+        // 绘制高亮落点
         ctx.save();
         ctx.shadowBlur = 15;
         ctx.shadowColor = "#00d4ff";
@@ -143,26 +168,27 @@
         ctx.restore();
 
         // 判定逻辑
-        const tx = (canvas.width / 2) - (TZ.w / 2) + TZ.ox;
-        const ty = (canvas.height / 2) - (TZ.h / 2) + TZ.oy;
-        const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w &&
-                         waterPos.y > ty && waterPos.y < ty + TZ.h;
-        
-        if (inTarget) bar1 += 0.22; else bar2 += 0.55;
+        if (gameStarted) {
+            const tx = (canvas.width / 2) - (TZ.w / 2) + TZ.ox;
+            const ty = (canvas.height / 2) - (TZ.h / 2) + TZ.oy;
+            const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w &&
+                             waterPos.y > ty && waterPos.y < ty + TZ.h;
+            
+            if (inTarget) bar1 += 0.22; else bar2 += 0.55;
 
-        // 更新 UI
-        document.getElementById('pee-fill').style.width = Math.min(bar1, 100) + '%';
-        document.getElementById('floor-fill').style.width = Math.min(bar2, 100) + '%';
-        document.getElementById('p1').innerText = Math.floor(bar1) + '%';
-        document.getElementById('p2').innerText = Math.floor(bar2) + '%';
+            document.getElementById('pee-fill').style.width = Math.min(bar1, 100) + '%';
+            document.getElementById('floor-fill').style.width = Math.min(bar2, 100) + '%';
+            document.getElementById('p1').innerText = Math.floor(bar1) + '%';
+            document.getElementById('p2').innerText = Math.floor(bar2) + '%';
 
-        if (bar1 >= 100) { 
-            winSound.play().catch(()=>{}); 
-            alert("SUCCESS!"); location.reload(); isGameOver = true; 
-        }
-        if (bar2 >= 100) { 
-            failSound.play().catch(()=>{}); 
-            alert("FAILED!"); location.reload(); isGameOver = true; 
+            if (bar1 >= 100) { 
+                winSound.play().catch(()=>{}); 
+                alert("SUCCESS!"); location.reload(); isGameOver = true; 
+            }
+            if (bar2 >= 100) { 
+                failSound.play().catch(()=>{}); 
+                alert("FAILED!"); location.reload(); isGameOver = true; 
+            }
         }
 
         requestAnimationFrame(loop);
