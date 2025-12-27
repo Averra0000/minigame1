@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Aim Game - Classic Smooth Edition</title>
+    <title>Aim Game - Pro Challenge Edition</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', sans-serif; 
@@ -19,7 +19,6 @@
         #pee-fill { height: 100%; background: #00d4ff; width: 0%; transition: width 0.1s; box-shadow: 0 0 15px #00d4ff; }
         #floor-fill { height: 100%; background: #005a7a; width: 0%; transition: width 0.1s; }
         
-        /* 底部半透明提示 */
         #hint { 
             position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
             color: rgba(255, 255, 255, 0.5); font-size: 16px; font-weight: 300;
@@ -49,23 +48,50 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    // 目标方框位置微调
     const TZ = { w: 150, h: 150, ox: 110, oy: -65 };
 
     let bar1 = 0, bar2 = 0;
-    let isGameOver = false;
-    let gameStarted = false;
+    let isGameOver = false, gameStarted = false;
     
     let waterPos = { x: 0, y: 0 };
     let velocity = { x: 0, y: 0 }; 
     const accel = 0.8;             
-    const friction = 0.88; // 第一版黄金参数
+    const friction = 0.88; 
     
     const keys = {};
     let particles = [];
+    let splashes = []; // 停留水渍粒子
 
-    const winSound = new Audio('win.mp3');
-    const failSound = new Audio('fail.mp3');
+    // 溅射粒子类：在地面停留并淡出
+    class Splash {
+        constructor(x, y) {
+            this.x = x; this.y = y;
+            const angle = Math.random() * Math.PI * 2;
+            const force = Math.random() * 3.5;
+            this.vx = Math.cos(angle) * force;
+            this.vy = Math.sin(angle) * force;
+            this.size = Math.random() * 2 + 0.5;
+            this.alpha = 1.0;
+            this.stayTime = 70 + Math.random() * 50; // 停留时间
+        }
+        update() {
+            if (this.stayTime > 0) {
+                this.x += this.vx; this.y += this.vy;
+                this.vx *= 0.85; this.vy *= 0.85;
+                this.stayTime--;
+            } else {
+                this.alpha -= 0.015;
+            }
+        }
+        draw() {
+            if (this.alpha <= 0) return;
+            ctx.fillStyle = `rgba(180, 240, 255, ${this.alpha})`;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+        }
+    }
 
+    // 水流类
     class Drip {
         constructor() {
             this.progress = 0;
@@ -82,9 +108,8 @@
         }
         draw() {
             if (this.progress >= 1) return;
-            let size = 1 + (1 - this.progress) * 10;
             ctx.fillStyle = `rgba(0, 212, 255, ${1 - this.progress})`;
-            ctx.beginPath(); ctx.arc(this.currX, this.currY, size, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(this.currX, this.currY, 1 + (1 - this.progress) * 8, 0, Math.PI * 2); ctx.fill();
         }
     }
 
@@ -98,12 +123,8 @@
     init();
 
     window.onkeydown = e => {
-        const k = e.key.toLowerCase();
-        keys[k] = true;
-        if (!gameStarted) {
-            gameStarted = true;
-            document.getElementById('hint').style.opacity = '0';
-        }
+        keys[e.key.toLowerCase()] = true;
+        if (!gameStarted) { gameStarted = true; document.getElementById('hint').style.opacity = '0'; }
     };
     window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
@@ -111,70 +132,50 @@
         if (isGameOver) return;
 
         if (gameStarted) {
-            // 1. 随机移动逻辑：通过不断累积小的随机冲力来产生滑行的不确定性
-            // 这种方式比直接改位置更丝滑，也更有挑战
+            // 随机移动幅度
             velocity.x += (Math.random() - 0.5) * 3.2;
             velocity.y += (Math.random() - 0.5) * 3.2;
 
-            // 2. 玩家操控
             if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
             if (keys['s'] || keys['arrowdown'])  velocity.y += accel;
             if (keys['a'] || keys['arrowleft'])  velocity.x -= accel;
             if (keys['d'] || keys['arrowright']) velocity.x += accel;
 
-            // 3. 应用第一版阻尼
-            velocity.x *= friction;
-            velocity.y *= friction;
+            velocity.x *= friction; velocity.y *= friction;
+            waterPos.x += velocity.x; waterPos.y += velocity.y;
 
-            // 4. 更新坐标
-            waterPos.x += velocity.x;
-            waterPos.y += velocity.y;
+            if (Math.random() > 0.2) splashes.push(new Splash(waterPos.x, waterPos.y));
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (particles.length < 120) {
-            for(let i=0; i<3; i++) particles.push(new Drip());
-        }
+        splashes.forEach((s, i) => { s.update(); s.draw(); if (s.alpha <= 0) splashes.splice(i, 1); });
 
-        particles.forEach((p, i) => {
-            p.update(); p.draw();
-            if (p.progress >= 1) particles.splice(i, 1);
-        });
+        if (particles.length < 100) { for(let i=0; i<3; i++) particles.push(new Drip()); }
+        particles.forEach((p, i) => { p.update(); p.draw(); if (p.progress >= 1) particles.splice(i, 1); });
 
-        // 绘制高亮接触点
         ctx.save();
-        ctx.shadowBlur = 25;
-        ctx.shadowColor = "#00d4ff";
-        ctx.fillStyle = "rgba(0, 212, 255, 0.95)";
-        ctx.beginPath();
-        ctx.arc(waterPos.x, waterPos.y, 11, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.shadowBlur = 20; ctx.shadowColor = "#00d4ff";
+        ctx.fillStyle = "rgba(0, 212, 255, 0.9)";
+        ctx.beginPath(); ctx.arc(waterPos.x, waterPos.y, 10, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
         if (gameStarted) {
             const tx = (canvas.width / 2) - (TZ.w / 2) + TZ.ox;
             const ty = (canvas.height / 2) - (TZ.h / 2) + TZ.oy;
-            const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w &&
-                             waterPos.y > ty && waterPos.y < ty + TZ.h;
+            const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w && waterPos.y > ty && waterPos.y < ty + TZ.h;
             
-            if (inTarget) bar1 += 0.28; else bar2 += 0.45;
+            // Bar2 增长速度设定为每秒 30% (0.5 * 60fps)
+            if (inTarget) bar1 += 0.25; else bar2 += 0.5;
 
             document.getElementById('pee-fill').style.width = Math.min(bar1, 100) + '%';
             document.getElementById('floor-fill').style.width = Math.min(bar2, 100) + '%';
             document.getElementById('p1').innerText = Math.floor(bar1) + '%';
             document.getElementById('p2').innerText = Math.floor(bar2) + '%';
 
-            if (bar1 >= 100) { 
-                winSound.play().catch(()=>{}); 
-                alert("MISSION ACCOMPLISHED!"); location.reload(); isGameOver = true; 
-            }
-            if (bar2 >= 100) { 
-                failSound.play().catch(()=>{}); 
-                alert("GAME OVER - YOU MISSED!"); location.reload(); isGameOver = true; 
-            }
+            if (bar1 >= 100) { alert("SUCCESS!"); location.reload(); isGameOver = true; }
+            if (bar2 >= 100) { alert("FAILED!"); location.reload(); isGameOver = true; }
         }
-
         requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
