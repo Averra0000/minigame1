@@ -19,6 +19,7 @@
         #pee-fill { height: 100%; background: #00d4ff; width: 0%; transition: width 0.1s; box-shadow: 0 0 15px #00d4ff; }
         #floor-fill { height: 100%; background: #005a7a; width: 0%; transition: width 0.1s; }
         
+        /* 底部半透明提示 */
         #hint { 
             position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
             color: rgba(255, 255, 255, 0.5); font-size: 16px; font-weight: 300;
@@ -48,11 +49,12 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // 目标方框位置微调
+    // 目标判定区域配置
     const TZ = { w: 150, h: 150, ox: 110, oy: -65 };
 
     let bar1 = 0, bar2 = 0;
-    let isGameOver = false, gameStarted = false;
+    let isGameOver = false;
+    let gameStarted = false;
     
     let waterPos = { x: 0, y: 0 };
     let velocity = { x: 0, y: 0 }; 
@@ -61,37 +63,48 @@
     
     const keys = {};
     let particles = [];
-    let splashes = []; // 停留水渍粒子
+    let splashes = []; // 存放地面溅射水渍
 
-    // 溅射粒子类：在地面停留并淡出
+    const winSound = new Audio('win.mp3');
+    const failSound = new Audio('fail.mp3');
+
+    // --- 溅射类：负责模拟落点周围停留的水滴 ---
     class Splash {
         constructor(x, y) {
-            this.x = x; this.y = y;
+            this.x = x;
+            this.y = y;
             const angle = Math.random() * Math.PI * 2;
-            const force = Math.random() * 3.5;
+            const force = Math.random() * 4;
             this.vx = Math.cos(angle) * force;
             this.vy = Math.sin(angle) * force;
-            this.size = Math.random() * 2 + 0.5;
+            this.size = Math.random() * 2.5 + 0.5;
             this.alpha = 1.0;
-            this.stayTime = 70 + Math.random() * 50; // 停留时间
+            // 停留时间：约 60-120 帧 (1-2秒)
+            this.stayTime = 60 + Math.random() * 60; 
         }
         update() {
             if (this.stayTime > 0) {
-                this.x += this.vx; this.y += this.vy;
-                this.vx *= 0.85; this.vy *= 0.85;
+                // 初始阶段有轻微扩散滑动
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.85;
+                this.vy *= 0.85;
                 this.stayTime--;
             } else {
+                // 停留结束后开始淡出消失
                 this.alpha -= 0.015;
             }
         }
         draw() {
             if (this.alpha <= 0) return;
             ctx.fillStyle = `rgba(180, 240, 255, ${this.alpha})`;
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 
-    // 水流类
+    // --- 滴落类：负责模拟从底部射向落点的动态水流 ---
     class Drip {
         constructor() {
             this.progress = 0;
@@ -108,8 +121,9 @@
         }
         draw() {
             if (this.progress >= 1) return;
+            let size = 1 + (1 - this.progress) * 10;
             ctx.fillStyle = `rgba(0, 212, 255, ${1 - this.progress})`;
-            ctx.beginPath(); ctx.arc(this.currX, this.currY, 1 + (1 - this.progress) * 8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(this.currX, this.currY, size, 0, Math.PI * 2); ctx.fill();
         }
     }
 
@@ -123,8 +137,12 @@
     init();
 
     window.onkeydown = e => {
-        keys[e.key.toLowerCase()] = true;
-        if (!gameStarted) { gameStarted = true; document.getElementById('hint').style.opacity = '0'; }
+        const k = e.key.toLowerCase();
+        keys[k] = true;
+        if (!gameStarted) {
+            gameStarted = true;
+            document.getElementById('hint').style.opacity = '0';
+        }
     };
     window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
@@ -132,50 +150,81 @@
         if (isGameOver) return;
 
         if (gameStarted) {
-            // 随机移动幅度
+            // 1. 随机抖动逻辑 (3.2 幅度)
             velocity.x += (Math.random() - 0.5) * 3.2;
             velocity.y += (Math.random() - 0.5) * 3.2;
 
+            // 2. 玩家操控逻辑
             if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
             if (keys['s'] || keys['arrowdown'])  velocity.y += accel;
             if (keys['a'] || keys['arrowleft'])  velocity.x -= accel;
             if (keys['d'] || keys['arrowright']) velocity.x += accel;
 
-            velocity.x *= friction; velocity.y *= friction;
-            waterPos.x += velocity.x; waterPos.y += velocity.y;
+            // 3. 物理应用
+            velocity.x *= friction;
+            velocity.y *= friction;
+            waterPos.x += velocity.x;
+            waterPos.y += velocity.y;
 
-            if (Math.random() > 0.2) splashes.push(new Splash(waterPos.x, waterPos.y));
+            // 4. 在落点产生溅射粒子
+            if (Math.random() > 0.2) {
+                splashes.push(new Splash(waterPos.x, waterPos.y));
+            }
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        splashes.forEach((s, i) => { s.update(); s.draw(); if (s.alpha <= 0) splashes.splice(i, 1); });
+        // 绘制地面停留粒子 (先画，在水流下方)
+        splashes.forEach((s, i) => {
+            s.update();
+            s.draw();
+            if (s.alpha <= 0) splashes.splice(i, 1);
+        });
 
-        if (particles.length < 100) { for(let i=0; i<3; i++) particles.push(new Drip()); }
-        particles.forEach((p, i) => { p.update(); p.draw(); if (p.progress >= 1) particles.splice(i, 1); });
+        // 绘制空中水流粒子
+        if (particles.length < 120) {
+            for(let i=0; i<3; i++) particles.push(new Drip());
+        }
+        particles.forEach((p, i) => {
+            p.update(); p.draw();
+            if (p.progress >= 1) particles.splice(i, 1);
+        });
 
+        // 绘制发光的接触点
         ctx.save();
-        ctx.shadowBlur = 20; ctx.shadowColor = "#00d4ff";
-        ctx.fillStyle = "rgba(0, 212, 255, 0.9)";
-        ctx.beginPath(); ctx.arc(waterPos.x, waterPos.y, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = "#00d4ff";
+        ctx.fillStyle = "rgba(0, 212, 255, 0.95)";
+        ctx.beginPath();
+        ctx.arc(waterPos.x, waterPos.y, 11, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
 
+        // 进度逻辑判定
         if (gameStarted) {
             const tx = (canvas.width / 2) - (TZ.w / 2) + TZ.ox;
             const ty = (canvas.height / 2) - (TZ.h / 2) + TZ.oy;
-            const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w && waterPos.y > ty && waterPos.y < ty + TZ.h;
+            const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w &&
+                             waterPos.y > ty && waterPos.y < ty + TZ.h;
             
-            // Bar2 增长速度设定为每秒 30% (0.5 * 60fps)
-            if (inTarget) bar1 += 0.25; else bar2 += 0.5;
+            // 核心修改：bar2 += 0.5 对应 60FPS 下每秒 30% 的增长
+            if (inTarget) bar1 += 0.28; else bar2 += 0.5;
 
             document.getElementById('pee-fill').style.width = Math.min(bar1, 100) + '%';
             document.getElementById('floor-fill').style.width = Math.min(bar2, 100) + '%';
             document.getElementById('p1').innerText = Math.floor(bar1) + '%';
             document.getElementById('p2').innerText = Math.floor(bar2) + '%';
 
-            if (bar1 >= 100) { alert("SUCCESS!"); location.reload(); isGameOver = true; }
-            if (bar2 >= 100) { alert("FAILED!"); location.reload(); isGameOver = true; }
+            if (bar1 >= 100) { 
+                winSound.play().catch(()=>{}); 
+                alert("MISSION ACCOMPLISHED!"); location.reload(); isGameOver = true; 
+            }
+            if (bar2 >= 100) { 
+                failSound.play().catch(()=>{}); 
+                alert("GAME OVER - YOU MISSED!"); location.reload(); isGameOver = true; 
+            }
         }
+
         requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
