@@ -2,39 +2,48 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Aim Game - Toilet Edition</title>
+    <title>Aim Game - Auto Aligner</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background: #000; color: white; font-family: sans-serif; 
-            /* 背景图设置 */
-            background-image: url('bg.jpg'); 
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+            background-image: url('bg.jpg'); background-size: cover; background-position: center;
         }
         canvas { display: block; }
         .ui { position: absolute; top: 20px; left: 20px; width: 280px; pointer-events: none; }
-        .bar-container { 
-            background: rgba(0, 0, 0, 0.7); padding: 12px; border-radius: 8px; margin-bottom: 12px; 
-            border: 1px solid rgba(0, 212, 255, 0.3); backdrop-filter: blur(5px);
+        .bar-container { background: rgba(0, 0, 0, 0.7); padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(0, 212, 255, 0.3); }
+        .progress { background: #1a1a1a; height: 14px; border-radius: 7px; overflow: hidden; }
+        #pee-fill { height: 100%; background: #00d4ff; width: 0%; box-shadow: 0 0 15px #00d4ff; }
+        #floor-fill { height: 100%; background: #005a7a; width: 0%; }
+
+        /* 调试工具样式 - 只有你会看到这个 */
+        #debug-tools {
+            position: absolute; right: 20px; top: 20px; background: rgba(0,0,0,0.8); 
+            padding: 15px; border-radius: 10px; pointer-events: auto; border: 1px solid gold;
         }
-        .label { font-size: 13px; margin-bottom: 6px; display: flex; justify-content: space-between; font-weight: bold; }
-        .progress { background: #1a1a1a; height: 14px; border-radius: 7px; overflow: hidden; border: 1px solid #333; }
-        #pee-fill { height: 100%; background: #00d4ff; width: 0%; transition: width 0.1s; box-shadow: 0 0 15px #00d4ff; }
-        #floor-fill { height: 100%; background: #005a7a; width: 0%; transition: width 0.1s; }
+        .debug-btn { padding: 5px 10px; margin: 2px; cursor: pointer; background: #444; color: white; border: none; }
     </style>
 </head>
 <body>
 
     <div class="ui">
         <div class="bar-container">
-            <div class="label">PEE BAR (TARGET) <span id="p1">0%</span></div>
+            <div>PEE BAR <span id="p1">0%</span></div>
             <div class="progress"><div id="pee-fill"></div></div>
         </div>
         <div class="bar-container">
-            <div class="label">FLOOR BAR (FAIL) <span id="p2">0%</span></div>
+            <div>FLOOR BAR <span id="p2">0%</span></div>
             <div class="progress"><div id="floor-fill"></div></div>
         </div>
+    </div>
+
+    <div id="debug-tools">
+        <div style="color:gold; margin-bottom:10px; font-size:12px;">对齐工具 (调试用)</div>
+        <button class="debug-btn" onclick="adjust('y', -10)">上移 ↑</button><br>
+        <button class="debug-btn" onclick="adjust('x', -10)">左移 ←</button>
+        <button class="debug-btn" onclick="adjust('x', 10)">右移 →</button><br>
+        <button class="debug-btn" onclick="adjust('y', 10)">下移 ↓</button>
+        <div id="current-vals" style="margin-top:10px; font-family:monospace; font-size:11px;"></div>
+        <p style="font-size:10px; color:#aaa;">调准后，把这组数字填回代码里</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -43,17 +52,10 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // --- 【对齐配置：根据你的图片进行了预设】 ---
-    const TARGET_ZONE = {
-        w: 130,       // 马桶中心区域宽度
-        h: 130,       // 马桶中心区域高度
-        offsetX: 0,   // 左右偏移
-        offsetY: -80  // 负数代表向上移动，对准背景图里的马桶
-    };
+    // --- 这里的数值你会通过右边的按钮来找到 ---
+    let TARGET_ZONE = { w: 130, h: 130, offsetX: 0, offsetY: -80 };
 
-    let bar1 = 0, bar2 = 0;
-    let isGameOver = false;
-    
+    let bar1 = 0, bar2 = 0, isGameOver = false;
     let waterPos = { x: 0, y: 0 };
     let drift = { x: 0, y: 0 };
     const keys = {};
@@ -62,6 +64,18 @@
     // 音效
     const winSound = new Audio('win.mp3');
     const failSound = new Audio('fail.mp3');
+
+    // 调试函数
+    function adjust(axis, amt) {
+        if(axis === 'x') TARGET_ZONE.offsetX += amt;
+        if(axis === 'y') TARGET_ZONE.offsetY += amt;
+        updateDebugDisplay();
+    }
+
+    function updateDebugDisplay() {
+        document.getElementById('current-vals').innerText = 
+            `offsetX: ${TARGET_ZONE.offsetX}\noffsetY: ${TARGET_ZONE.offsetY}`;
+    }
 
     class Drip {
         constructor() {
@@ -89,6 +103,7 @@
         canvas.height = window.innerHeight;
         waterPos.x = (canvas.width / 2) + TARGET_ZONE.offsetX;
         waterPos.y = (canvas.height / 2) + TARGET_ZONE.offsetY;
+        updateDebugDisplay();
     }
     window.addEventListener('resize', init);
     init();
@@ -98,7 +113,6 @@
 
     function loop() {
         if (isGameOver) return;
-
         drift.x += (Math.random() - 0.5) * 1.5;
         drift.y += (Math.random() - 0.5) * 1.5;
         waterPos.x += drift.x;
@@ -121,9 +135,9 @@
         if (inTarget) bar1 += 0.2; else bar2 += 0.6;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 目标辅助线（可选，对齐后可以把 alpha 设为 0）
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        
+        // 目标框
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.strokeRect(tx, ty, TARGET_ZONE.w, TARGET_ZONE.h);
 
         particles.forEach((p, i) => {
