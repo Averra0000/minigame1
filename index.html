@@ -1,35 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Aim Game - Smooth Edition</title>
+    <style>
+        body { 
+            margin: 0; overflow: hidden; background: #000; color: white; font-family: sans-serif; 
+            background-image: url('bg.jpg'); background-size: cover; background-position: center;
+        }
+        canvas { display: block; }
+        .ui { position: absolute; top: 20px; left: 20px; width: 280px; pointer-events: none; }
+        .bar-container { 
+            background: rgba(0, 0, 0, 0.7); padding: 12px; border-radius: 8px; margin-bottom: 12px; 
+            border: 1px solid rgba(0, 212, 255, 0.3); backdrop-filter: blur(5px);
+        }
+        .label { font-size: 13px; margin-bottom: 6px; display: flex; justify-content: space-between; font-weight: bold; }
+        .progress { background: #1a1a1a; height: 14px; border-radius: 7px; overflow: hidden; border: 1px solid #333; }
+        #pee-fill { height: 100%; background: #00d4ff; width: 0%; transition: width 0.1s; box-shadow: 0 0 15px #00d4ff; }
+        #floor-fill { height: 100%; background: #005a7a; width: 0%; transition: width 0.1s; }
+    </style>
+</head>
+<body>
+
+    <div class="ui">
+        <div class="bar-container">
+            <div class="label">PEE BAR (TARGET) <span id="p1">0%</span></div>
+            <div class="progress"><div id="pee-fill"></div></div>
+        </div>
+        <div class="bar-container">
+            <div class="label">FLOOR BAR (FAIL) <span id="p2">0%</span></div>
+            <div class="progress"><div id="floor-fill"></div></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    // 应用你找到的精准数值
     const TZ = { w: 150, h: 150, ox: 110, oy: -65 };
 
     let bar1 = 0, bar2 = 0;
     let isGameOver = false;
     
     let waterPos = { x: 0, y: 0 };
-    
-    // --- 优化核心：引入物理变量 ---
-    let velocity = { x: 0, y: 0 }; // 当前速度
-    const accel = 0.8;             // 加速度：数值越小移动越精细
-    const friction = 0.88;          // 摩擦力：数值越接近1越滑，越小越稳
+    let velocity = { x: 0, y: 0 }; 
+    const accel = 0.6;             // 更加精细的加速度
+    const friction = 0.92;          // 稍微增加一点惯性，手感更丝滑
     
     let drift = { x: 0, y: 0 }; 
     const keys = {};
     let particles = [];
 
+    // 预加载音效（防止报错）
     const winSound = new Audio('win.mp3');
     const failSound = new Audio('fail.mp3');
 
-    // 粒子类保持不变...
     class Drip {
         constructor() {
             this.progress = 0;
             this.speed = 0.05 + Math.random() * 0.02;
             this.startX = canvas.width / 2;
             this.startY = canvas.height + 20;
-            this.tx = waterPos.x + (Math.random()-0.5) * 15;
-            this.ty = waterPos.y + (Math.random()-0.5) * 15;
+            this.tx = waterPos.x + (Math.random()-0.5) * 20;
+            this.ty = waterPos.y + (Math.random()-0.5) * 20;
         }
         update() {
             this.progress += this.speed;
@@ -37,9 +73,12 @@
             this.currY = this.startY + (this.ty - this.startY) * this.progress - Math.sin(this.progress * Math.PI) * 120;
         }
         draw() {
-            let size = 1 + (1 - this.progress) * 10;
+            if (this.progress >= 1) return;
+            let size = 1 + (1 - this.progress) * 8;
             ctx.fillStyle = `rgba(0, 212, 255, ${1 - this.progress})`;
-            ctx.beginPath(); ctx.arc(this.currX, this.currY, size, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); 
+            ctx.arc(this.currX, this.currY, size, 0, Math.PI * 2); 
+            ctx.fill();
         }
     }
 
@@ -52,36 +91,58 @@
     window.addEventListener('resize', init);
     init();
 
-    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+    window.onkeydown = e => keys[e.key.toLowerCase()] = true;
+    window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
     function loop() {
         if (isGameOver) return;
 
-        // 1. 随机漂移：降低频率，增强“晃动”感
-        drift.x += (Math.random() - 0.5) * 1.2;
-        drift.y += (Math.random() - 0.5) * 1.2;
-        velocity.x += drift.x * 0.1; // 漂移影响速度
-        velocity.y += drift.y * 0.1;
-        drift.x *= 0.9;
-        drift.y *= 0.9;
+        // 1. 物理：随机漂移 (缓和的波动)
+        drift.x += (Math.random() - 0.5) * 0.8;
+        drift.y += (Math.random() - 0.5) * 0.8;
+        velocity.x += drift.x * 0.05;
+        velocity.y += drift.y * 0.05;
+        drift.x *= 0.9; drift.y *= 0.9;
 
-        // 2. 平滑操控：使用加速度控制速度
+        // 2. 控制：平滑加速
         if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
         if (keys['s'] || keys['arrowdown'])  velocity.y += accel;
         if (keys['a'] || keys['arrowleft'])  velocity.x -= accel;
         if (keys['d'] || keys['arrowright']) velocity.x += accel;
 
-        // 3. 应用摩擦力（这是丝滑的关键）
+        // 3. 应用摩擦力
         velocity.x *= friction;
         velocity.y *= friction;
 
-        // 4. 更新最终位置
+        // 4. 更新位置
         waterPos.x += velocity.x;
         waterPos.y += velocity.y;
 
-        for(let i=0; i<3; i++) particles.push(new Drip());
+        // 5. 渲染
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // 产生粒子
+        if (particles.length < 100) {
+            for(let i=0; i<3; i++) particles.push(new Drip());
+        }
+
+        // 绘制粒子
+        particles.forEach((p, i) => {
+            p.update(); p.draw();
+            if (p.progress >= 1) particles.splice(i, 1);
+        });
+
+        // 绘制高亮落点 (改回简单发光模式，更稳健)
+        ctx.save();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#00d4ff";
+        ctx.fillStyle = "rgba(0, 212, 255, 0.8)";
+        ctx.beginPath();
+        ctx.arc(waterPos.x, waterPos.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 判定逻辑
         const tx = (canvas.width / 2) - (TZ.w / 2) + TZ.ox;
         const ty = (canvas.height / 2) - (TZ.h / 2) + TZ.oy;
         const inTarget = waterPos.x > tx && waterPos.x < tx + TZ.w &&
@@ -89,31 +150,24 @@
         
         if (inTarget) bar1 += 0.22; else bar2 += 0.55;
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        particles.forEach((p, i) => {
-            p.update(); p.draw();
-            if (p.progress >= 1) particles.splice(i, 1);
-        });
-
-        // 绘制带“软边缘”的高亮落点
-        const gradient = ctx.createRadialGradient(waterPos.x, waterPos.y, 0, waterPos.x, waterPos.y, 15);
-        gradient.addColorStop(0, 'rgba(0, 212, 255, 1)');
-        gradient.addColorStop(1, 'rgba(0, 212, 255, 0)');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(waterPos.x, waterPos.y, 15, 0, Math.PI * 2);
-        ctx.fill();
-
+        // 更新 UI
         document.getElementById('pee-fill').style.width = Math.min(bar1, 100) + '%';
         document.getElementById('floor-fill').style.width = Math.min(bar2, 100) + '%';
         document.getElementById('p1').innerText = Math.floor(bar1) + '%';
         document.getElementById('p2').innerText = Math.floor(bar2) + '%';
 
-        if (bar1 >= 100) { winSound.play().catch(e=>{}); setTimeout(() => { alert("SUCCESS!"); location.reload(); }, 100); isGameOver = true; }
-        if (bar2 >= 100) { failSound.play().catch(e=>{}); setTimeout(() => { alert("FAILED!"); location.reload(); }, 100); isGameOver = true; }
+        if (bar1 >= 100) { 
+            winSound.play().catch(()=>{}); 
+            alert("SUCCESS!"); location.reload(); isGameOver = true; 
+        }
+        if (bar2 >= 100) { 
+            failSound.play().catch(()=>{}); 
+            alert("FAILED!"); location.reload(); isGameOver = true; 
+        }
 
         requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
 </script>
+</body>
+</html>
