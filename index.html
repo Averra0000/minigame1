@@ -113,8 +113,8 @@
         if (gameStarted) {
             // 1. 随机移动逻辑：通过不断累积小的随机冲力来产生滑行的不确定性
             // 这种方式比直接改位置更丝滑，也更有挑战
-            velocity.x += (Math.random() - 0.5) * 2.8;
-            velocity.y += (Math.random() - 0.5) * 2.8;
+            velocity.x += (Math.random() - 0.5) * 3.2;
+            velocity.y += (Math.random() - 0.5) * 3.2;
 
             // 2. 玩家操控
             if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
