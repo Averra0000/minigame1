@@ -151,8 +151,8 @@
 
         if (gameStarted) {
             // 1. 随机抖动逻辑 (3.2 幅度)
-            velocity.x += (Math.random() - 0.5) * 3.2;
-            velocity.y += (Math.random() - 0.5) * 3.2;
+            velocity.x += (Math.random() - 0.5) * 3.5;
+            velocity.y += (Math.random() - 0.5) * 3.5;
 
             // 2. 玩家操控逻辑
             if (keys['w'] || keys['arrowup'])    velocity.y -= accel;
